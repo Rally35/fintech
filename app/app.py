@@ -123,7 +123,7 @@ try:
         # Calculate metrics
         calculator = MetricsCalculator(latest_price, latest_financials)
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             prev_close = latest_price.get('open', latest_price['close']) # Fallback
@@ -158,6 +158,14 @@ try:
                 "EBITDA Margin",
                 f"{ebitda_margin:.2f}%" if ebitda_margin else "N/A",
                 help="EBITDA margin %"
+            )
+        
+        with col5:
+            eps = calculator.calculate_eps()
+            st.metric(
+                "EPS",
+                f"{eps:.2f}" if eps else "N/A",
+                help="EPS"
             )
 
 except Exception as e:

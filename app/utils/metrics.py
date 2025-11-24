@@ -113,3 +113,18 @@ class MetricsCalculator:
         except Exception as e:
             logger.error(f"Error calculating current ratio: {e}")
             return None
+    def calculate_eps(self) -> Optional[float]:
+        """Price-to-Earnings Ratio = Price / EPS"""
+        try:
+            price = self.price_data.get('close')
+            liczba_akcji = self.financial_data.get('liczba_akcji')
+            zysk_netto = self.financial_data.get('zysk_netto')
+            
+            if not price or not liczba_akcji or not zysk_netto:
+                return None
+            
+            eps = self._safe_div(zysk_netto, liczba_akcji)
+            return eps if eps and eps > 0 else None
+        except Exception as e:
+            logger.error(f"Error calculating EPS: {e}")
+            return None
