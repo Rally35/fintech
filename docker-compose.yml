@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # STREAMLIT: Frontend UI Application
+  # ============================================================
+  streamlit:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: fintech-app-streamlit
+    ports:
+      - "8502:8501"  # LEWA STRONA (Host): 8502, PRAWA STRONA (Kontener): 8501
+    environment:
+      - DATABASE_URL=postgresql://fintech_user:fintech_pass@postgres:5432/fintech_db
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_RUN_ON_SAVE=false
+      - STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=false
+    volumes:
+      - ./app:/app
+      - ./scripts:/app/scripts  # <--- DODAJ TĘ LINIĘ
+      - ./data/dane_finansowe.xlsx:/data/dane_finansowe.xlsx:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fintech-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8502/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================
+  # POSTGRES: Database
+  # ============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: fintech-app-postgres
+    environment:
+      - POSTGRES_USER=fintech_user
+      - POSTGRES_PASSWORD=fintech_pass
+      - POSTGRES_DB=fintech_db
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed_companies.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "5434:5432"  # Only for local development debugging
+    restart: unless-stopped
+    networks:
+      - fintech-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintech_user -d fintech_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  fintech-network:
+    driver: bridge
