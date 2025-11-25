@@ -1,73 +1,79 @@
--- ============================================================
--- SCHEMA INITIALIZATION
--- ============================================================
-
--- Companies table
+-- Tabela spółek
 CREATE TABLE IF NOT EXISTS companies (
-    id SERIAL PRIMARY KEY,
-    ticker VARCHAR(10) UNIQUE NOT NULL,
+    ticker VARCHAR(10) PRIMARY KEY,
     name VARCHAR(255),
     currency VARCHAR(3) DEFAULT 'PLN',
     sector VARCHAR(100),
-    shares_outstanding BIGINT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    industry VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Quarterly financial data
-CREATE TABLE IF NOT EXISTS financials_quarterly (
+-- Tabela danych finansowych (48 kolumn z Excela)
+CREATE TABLE IF NOT EXISTS financials (
     id SERIAL PRIMARY KEY,
-    ticker VARCHAR(10) NOT NULL REFERENCES companies(ticker) ON DELETE CASCADE,
-    rok INT NOT NULL,
-    kwartal VARCHAR(3) NOT NULL,
+    ticker VARCHAR(10) NOT NULL, -- Opcjonalnie: REFERENCES companies(ticker) jeśli chcesz ścisłej relacji
+    waluta VARCHAR(10),
     data_publikacji DATE,
+    rok INT,
+    kwartal VARCHAR(10),
     
-    -- P&L
-    przychody BIGINT,
-    koszty_sprzedanych_produktow BIGINT,
-    zysk_brutto_ze_sprzedazy BIGINT,
-    koszty_operacyjne BIGINT,
-    ebitda BIGINT,
-    amortyzacja BIGINT,
-    ebit BIGINT,
-    przychody_finansowe BIGINT,
-    koszty_finansowe BIGINT,
-    zysk_brutto BIGINT,
-    podatek_dochodowy BIGINT,
-    zysk_netto BIGINT,
+    -- Rachunek Zysków i Strat (RZiS)
+    przychody NUMERIC,
+    koszty_sprzedanych_produktow NUMERIC,
+    zysk_brutto_ze_sprzedazy NUMERIC,
+    koszty_operacyjne NUMERIC,
+    ebitda NUMERIC,
+    amortyzacja NUMERIC,
+    ebit NUMERIC,
+    przychody_finansowe NUMERIC,
+    koszty_finansowe NUMERIC,
+    zysk_brutto NUMERIC,
+    podatek_dochodowy NUMERIC,
+    zysk_netto NUMERIC,
+    zysk_netto_jednostki_dominujacej NUMERIC,
     
-    -- Balance Sheet
-    aktywa_obrotowe BIGINT,
-    srodki_pieniezne BIGINT,
-    naleznosci_krotkoterminowe BIGINT,
-    zapasy BIGINT,
-    pozostale_aktywa_obrotowe BIGINT,
-    aktywa_trwale BIGINT,
-    rzeczowe_aktywa_trwale BIGINT,
-    wartosci_niematerialne BIGINT,
-    inwestycje_dlugoterminowe BIGINT,
-    aktywa_razem BIGINT,
-    zobowiazania_krotkoterminowe BIGINT,
-    dlug_krotkoterminowy BIGINT,
-    zobowiazania_dlugoterminowe BIGINT,
-    dlug_dlugoterminowy BIGINT,
-    kapital_wlasny BIGINT,
+    -- Bilans - Aktywa
+    aktywa_obrotowe NUMERIC,
+    srodki_pieniezne NUMERIC,
+    naleznosci_krotkoterminowe NUMERIC,
+    zapasy NUMERIC,
+    pozostale_aktywa_obrotowe NUMERIC,
+    aktywa_trwale NUMERIC,
+    rzeczowe_aktywa_trwale NUMERIC,
+    wartosci_niematerialne NUMERIC,
+    inwestycje_dlugoterminowe NUMERIC,
+    pozostale_aktywa_trwale NUMERIC,
+    aktywa_razem NUMERIC,
+    
+    -- Bilans - Pasywa
+    zobowiazania_krotkoterminowe NUMERIC,
+    dlug_krotkoterminowy NUMERIC,
+    zobowiazania_handlowe NUMERIC,
+    pozostale_zobowiazania_krotkoterminowe NUMERIC,
+    zobowiazania_dlugoterminowe NUMERIC,
+    dlug_dlugoterminowy NUMERIC,
+    pozostale_zobowiazania_dlugoterminowe NUMERIC,
+    kapital_wlasny NUMERIC,
+    kapital_zakladowy NUMERIC,
+    kapital_zapasowy NUMERIC,
+    zyski_zatrzymane NUMERIC,
+    pasywa_razem NUMERIC,
     
     -- Cash Flow
-    przeplywy_operacyjne BIGINT,
-    przeplywy_inwestycyjne BIGINT,
-    przeplywy_finansowe BIGINT,
-    capex BIGINT,
-    free_cash_flow BIGINT,
+    przeplywy_operacyjne NUMERIC,
+    przeplywy_inwestycyjne NUMERIC,
+    przeplywy_finansowe NUMERIC,
+    zmiana_stanu_srodkow NUMERIC,
+    capex NUMERIC,
+    free_cash_flow NUMERIC,
     
-    -- Additional
-    dywidenda_na_akcje DECIMAL(10,2),
+    -- Inne
     liczba_akcji BIGINT,
     
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    UNIQUE(ticker, rok, kwartal)
+    -- Klucz unikalny, aby ON CONFLICT działało w imporcie
+    CONSTRAINT unique_financial_report UNIQUE (ticker, rok, kwartal)
 );
 
 -- Daily prices
@@ -85,8 +91,8 @@ CREATE TABLE IF NOT EXISTS prices_daily (
     UNIQUE(ticker, date)
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_financials_ticker ON financials_quarterly(ticker);
-CREATE INDEX IF NOT EXISTS idx_financials_rok_kwartal ON financials_quarterly(rok, kwartal);
+-- Indeksy dla szybszego wyszukiwania
+CREATE INDEX IF NOT EXISTS idx_financials_ticker ON financials(ticker);
+CREATE INDEX IF NOT EXISTS idx_financials_ticker ON financials(rok, kwartal);
 CREATE INDEX IF NOT EXISTS idx_prices_ticker_date ON prices_daily(ticker, date DESC);
 CREATE INDEX IF NOT EXISTS idx_prices_date ON prices_daily(date DESC);

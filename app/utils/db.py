@@ -4,6 +4,7 @@ Database operations and queries
 
 import os
 import psycopg2
+import pandas as pd
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 import logging
@@ -46,7 +47,7 @@ class DatabaseConnection:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute("""
-                        SELECT id, ticker, name, currency 
+                        SELECT ticker, name, currency 
                         FROM companies 
                         ORDER BY ticker
                     """)
@@ -82,7 +83,7 @@ class DatabaseConnection:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute("""
                         SELECT *
-                        FROM financials_quarterly
+                        FROM financials
                         WHERE ticker = %s
                         ORDER BY rok DESC, kwartal DESC
                         LIMIT 1
@@ -104,7 +105,7 @@ class DatabaseConnection:
                 query = """
                     SELECT *,
                            CAST(rok AS VARCHAR) || '-' || kwartal AS period
-                    FROM financials_quarterly
+                    FROM financials
                     WHERE ticker = %s
                     ORDER BY rok ASC, kwartal ASC
                 """
