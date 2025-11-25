@@ -177,10 +177,10 @@ except Exception as e:
 # ============================================================
 
 st.markdown("---")
-st.subheader("3. Financial Statements (Last 8 Quarters)")
+st.subheader("3. Financial Statements (Last 5 Years)")
 
 try:
-    financials_df = db.get_financials_history(selected_ticker, quarters=8)
+    financials_df = db.get_financials_history(selected_ticker, quarters=20)
     
     if financials_df is None or len(financials_df) == 0:
         st.info("No financial data available")
@@ -194,9 +194,9 @@ try:
         df_display = financials_df[valid_cols].copy()
         
         # Format numbers
-        for col in valid_cols[2:]: # Skip rok, kwartal
+        for col in valid_cols: # Skip rok, kwartal
              df_display[col] = df_display[col].apply(
-                lambda x: f"{x:,.0f}" if pd.notna(x) else "N/A"
+                lambda x: f"{x:}" if pd.notna(x) else "N/A"
             )
         
         # Rename for UI

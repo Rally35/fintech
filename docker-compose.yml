@@ -18,6 +18,9 @@ services:
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_SERVER_RUN_ON_SAVE=false
       - STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=false
+      - DB_HOST=fintech-app-postgres
+      - DB_USER=fintech_user
+      - DB_PORT=5432
     volumes:
       - ./app:/app
       - ./scripts:/app/scripts  # <--- DODAJ TĘ LINIĘ
