@@ -1,27 +1,26 @@
 #!/bin/bash
 set -e
 
-# Ustawienia domyślne, jeśli zmienne środowiskowe nie są podane
+# Default settings if environment variables are not provided
 HOST="${DB_HOST:-db}"
 PORT="${DB_PORT:-5432}"
 USER="${DB_USER:-postgres}"
 
-echo "Czekam na bazę danych Postgres pod adresem $HOST:$PORT..."
+echo "Waiting for the Postgres database at $HOST:$PORT..."
 
-# Pętla czekająca na gotowość bazy danych
-# Wymaga zainstalowanego pakietu postgresql-client (jest w Dockerfile)
+# Loop waiting for the database to be ready
+# Requires the postgresql-client package (included in the Dockerfile)
 until pg_isready -h "$HOST" -p "$PORT" -U "$USER"; do
-  >&2 echo "Postgres jest niedostępny - czekam..."
+  >&2 echo "Postgres is unavailable - waiting..."
   sleep 2
 done
 
->&2 echo "Postgres jest gotowy! Uruchamiam skrypty..."
+>&2 echo "Postgres is ready! Running the data update script..."
 
-# Uruchomienie skryptów Pythona
-python scripts/import_quarterly.py
-python scripts/update_prices.py
+# Run the consolidated Python script to update all data
+python scripts/update_all_data.py
 
-echo "Skrypty wykonane. Uruchamiam aplikację..."
+echo "Script execution finished. Starting the application..."
 
-# Wykonanie głównej komendy przekazanej w CMD (Streamlit)
+# Execute the main command passed in CMD (Streamlit)
 exec "$@"

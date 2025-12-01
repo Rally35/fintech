@@ -12,6 +12,8 @@ import logging
 import sys
 import os
 
+import subprocess
+
 # Add utils to path to ensure modules are found
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -53,10 +55,27 @@ db = st.session_state.db_connection
 st.sidebar.title("📊 FinTech Analysis")
 st.sidebar.write("Fundamental analysis tool for GPW stocks")
 
-# Refresh data button
-if st.sidebar.button("🔄 Refresh Data"):
+# Update data button
+if st.sidebar.button("🔄 Force Update All Data"):
+    with st.spinner('Updating all data... This may take a moment.'):
+        try:
+            # Execute the update script
+            result = subprocess.run(
+                ["python", "scripts/update_all_data.py"],
+                capture_output=True,
+                text=True,
+                check=True  # Raise an exception if the script fails
+            )
+            logger.info(result.stdout)
+            st.success("Data updated successfully!")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Data update failed: {e.stderr}")
+            st.error(f"Data update failed. See logs for details: {e.stderr}")
+        except FileNotFoundError:
+            st.error("Error: 'update_all_data.py' script not found.")
     st.cache_data.clear()
     st.rerun()
+
 
 # Last update info
 try:
