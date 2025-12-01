@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS financials (
     
     -- Inne
     liczba_akcji BIGINT,
+
+    -- Pre-calculated Metrics
+    roe NUMERIC,
+    roa NUMERIC,
+    net_margin NUMERIC,
+    debt_to_equity NUMERIC,
+    current_ratio NUMERIC,
+    eps NUMERIC,
+    ebitda_margin NUMERIC,
     
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
@@ -96,3 +105,24 @@ CREATE INDEX IF NOT EXISTS idx_financials_ticker ON financials(ticker);
 CREATE INDEX IF NOT EXISTS idx_financials_ticker ON financials(rok, kwartal);
 CREATE INDEX IF NOT EXISTS idx_prices_ticker_date ON prices_daily(ticker, date DESC);
 CREATE INDEX IF NOT EXISTS idx_prices_date ON prices_daily(date DESC);
+
+-- Function to calculate metrics
+CREATE OR REPLACE FUNCTION calculate_metrics_trigger_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.roe := CASE WHEN NEW.kapital_wlasny != 0 THEN NEW.zysk_netto / NEW.kapital_wlasny * 100 ELSE NULL END;
+    NEW.roa := CASE WHEN NEW.aktywa_razem != 0 THEN NEW.zysk_netto / NEW.aktywa_razem * 100 ELSE NULL END;
+    NEW.net_margin := CASE WHEN NEW.przychody != 0 THEN NEW.zysk_netto / NEW.przychody * 100 ELSE NULL END;
+    NEW.debt_to_equity := CASE WHEN NEW.kapital_wlasny != 0 THEN (COALESCE(NEW.dlug_krotkoterminowy, 0) + COALESCE(NEW.dlug_dlugoterminowy, 0)) / NEW.kapital_wlasny ELSE NULL END;
+    NEW.current_ratio := CASE WHEN NEW.zobowiazania_krotkoterminowe != 0 THEN NEW.aktywa_obrotowe / NEW.zobowiazania_krotkoterminowe ELSE NULL END;
+    NEW.eps := CASE WHEN NEW.liczba_akcji != 0 THEN NEW.zysk_netto / NEW.liczba_akcji ELSE NULL END;
+    NEW.ebitda_margin := CASE WHEN NEW.przychody != 0 THEN NEW.ebitda / NEW.przychody * 100 ELSE NULL END;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to run the function after insert or update
+CREATE TRIGGER metrics_trigger
+BEFORE INSERT OR UPDATE ON financials
+FOR EACH ROW
+EXECUTE FUNCTION calculate_metrics_trigger_func();

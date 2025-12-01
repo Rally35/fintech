@@ -22,6 +22,7 @@ sys.path.append(parent_dir)
 
 from utils.db import DatabaseConnection
 from utils.excel_import import ExcelImporter
+from import_prices_from_csv import run_price_import
 
 # Setup logowania
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,7 +93,9 @@ def run_quarterly_import():
                                 zobowiazania_dlugoterminowe, dlug_dlugoterminowy, pozostale_zobowiazania_dlugoterminowe, kapital_wlasny, kapital_zakladowy, kapital_zapasowy, 
                                 zyski_zatrzymane, pasywa_razem, przeplywy_operacyjne, przeplywy_inwestycyjne, przeplywy_finansowe, zmiana_stanu_srodkow, 
                                 capex, free_cash_flow, liczba_akcji
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            )
                             ON CONFLICT (ticker, rok, kwartal) DO UPDATE SET 
                                 waluta = EXCLUDED.waluta, data_publikacji = EXCLUDED.data_publikacji, przychody = EXCLUDED.przychody, koszty_sprzedanych_produktow = EXCLUDED.koszty_sprzedanych_produktow,
                                 zysk_brutto_ze_sprzedazy = EXCLUDED.zysk_brutto_ze_sprzedazy, koszty_operacyjne = EXCLUDED.koszty_operacyjne, ebitda = EXCLUDED.ebitda, amortyzacja = EXCLUDED.amortyzacja,
@@ -107,7 +110,8 @@ def run_quarterly_import():
                                 kapital_wlasny = EXCLUDED.kapital_wlasny, kapital_zakladowy = EXCLUDED.kapital_zakladowy, kapital_zapasowy = EXCLUDED.kapital_zapasowy,
                                 zyski_zatrzymane = EXCLUDED.zyski_zatrzymane, pasywa_razem = EXCLUDED.pasywa_razem, przeplywy_operacyjne = EXCLUDED.przeplywy_operacyjne,
                                 przeplywy_inwestycyjne = EXCLUDED.przeplywy_inwestycyjne, przeplywy_finansowe = EXCLUDED.przeplywy_finansowe, zmiana_stanu_srodkow = EXCLUDED.zmiana_stanu_srodkow,
-                                capex = EXCLUDED.capex, free_cash_flow = EXCLUDED.free_cash_flow, liczba_akcji = EXCLUDED.liczba_akcji, updated_at = NOW();
+                                capex = EXCLUDED.capex, free_cash_flow = EXCLUDED.free_cash_flow, liczba_akcji = EXCLUDED.liczba_akcji,
+                                updated_at = NOW();
                         """
                         values = (
                             clean_val(row.get('Ticker')), clean_val(row.get('Waluta')), clean_val(row.get('Data_publikacji')), clean_val(row.get('Rok')), clean_val(row.get('Kwartal')),
@@ -120,7 +124,7 @@ def run_quarterly_import():
                             clean_val(row.get('Rzeczowe_Aktywa_Trwale')), clean_val(row.get('Wartosci_Niematerialne')), clean_val(row.get('Inwestycje_Dlugoterminowe')),
                             clean_val(row.get('Pozostale_Aktywa_Trwale')), clean_val(row.get('Aktywa_Razem')), clean_val(row.get('Zobowiazania_Krotkoterminowe')),
                             clean_val(row.get('Dlug_Krotkoterminowy')), clean_val(row.get('Zobowiazania_Handlowe')), clean_val(row.get('Pozostale_Zobowiazania_Krotkoterminowe')),
-                            clean_val(row.get('Zobowiazania_Dlugoterminowe')), clean_val(row.get('Dlug_Dlugoterminowy')), clean_val(row.get('Pozostale_Zobowiazania_Dlugoterminowe')),
+                            clean_val(row.get('Zobowiazania_Dlugoterminowe')), clean__val(row.get('Dlug_Dlugoterminowy')), clean_val(row.get('Pozostale_Zobowiazania_Dlugoterminowe')),
                             clean_val(row.get('Kapital_Wlasny')), clean_val(row.get('Kapital_Zakladowy')), clean_val(row.get('Kapital_Zapasowy')),
                             clean_val(row.get('Zyski_Zatrzymane')), clean_val(row.get('Pasywa_Razem')), clean_val(row.get('Przeplywy_Operacyjne')),
                             clean_val(row.get('Przeplywy_Inwestycyjne')), clean_val(row.get('Przeplywy_Finansowe')), clean_val(row.get('Zmiana_Stanu_Srodkow')),
@@ -136,6 +140,7 @@ def run_quarterly_import():
         logger.info(f"✅ Success! Updated/Added {success_count} financial reports.")
     except Exception as e:
         logger.error(f"General error with database connection or import: {e}")
+
 
 def get_db_connection():
     """Establishes a database connection."""
@@ -165,7 +170,7 @@ def update_price(ticker: str):
     """Updates the price for a single ticker."""
     try:
         logger.info(f"Updating price for {ticker}...")
-        data = yf.download(ticker, start=datetime.now() - timedelta(days=5), end=datetime.now(), progress=False)
+        data = yf.download(ticker, start=datetime.now() - timedelta(days=5), end=datetime.now(), progress=False, auto_adjust=True)
         if data.empty:
             logger.warning(f"No data found for {ticker}")
             return False
@@ -213,5 +218,6 @@ def update_all_prices():
 if __name__ == "__main__":
     logger.info("--- Starting Full Data Update ---")
     run_quarterly_import()
+    run_price_import()
     update_all_prices()
     logger.info("--- Full Data Update Finished ---")

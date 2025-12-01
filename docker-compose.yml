@@ -23,7 +23,7 @@ services:
       - DB_PORT=5432
     volumes:
       - ./app:/app
-      - ./data/dane_finansowe.xlsx:/data/dane_finansowe.xlsx:ro
+      - ./data/dane_finansowe.xlsx:/app/data/dane_finansowe.xlsx:ro
     depends_on:
       postgres:
         condition: service_healthy

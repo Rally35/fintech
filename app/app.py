@@ -131,61 +131,100 @@ except Exception as e:
 st.markdown("---")
 st.subheader("2. Live Metrics")
 
+@st.cache_data(ttl=300) # Cache for 5 minutes
+def get_real_time_price(ticker):
+    """Fetches the real-time stock price from Yahoo! Finance."""
+    try:
+        stock = yf.Ticker(ticker)
+        todays_data = stock.history(period='1d')
+        if not todays_data.empty:
+            return todays_data['Close'].iloc[-1]
+    except Exception as e:
+        logger.error(f"Error fetching real-time price for {ticker}: {e}")
+    return None
+
 try:
     # Fetch latest price and fundamentals
-    latest_price = db.get_latest_price(selected_ticker)
+    latest_price_from_db = db.get_latest_price(selected_ticker)
     latest_financials = db.get_latest_financials(selected_ticker)
     
-    if not latest_price or not latest_financials:
+    if not latest_price_from_db or not latest_financials:
         st.warning(f"⚠️ Incomplete data for {selected_ticker}. Price or Financials missing.")
     else:
-        # Calculate metrics
-        calculator = MetricsCalculator(latest_price, latest_financials)
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # Get real-time price for live metrics
+        real_time_price = get_real_time_price(selected_ticker)
+        if real_time_price is None:
+            st.warning("Could not fetch real-time price, using last close from DB.")
+            real_time_price = latest_price_from_db['close']
+
+        # P/E Ratio uses real-time price and pre-calculated EPS
+        pe_ratio = real_time_price / latest_financials['eps'] if latest_financials['eps'] else None
+
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            prev_close = latest_price.get('open', latest_price['close']) # Fallback
-            delta_val = ((latest_price['close'] - prev_close) / prev_close * 100) if prev_close else 0
+            prev_close = latest_price_from_db.get('open', latest_price_from_db['close']) # Fallback
+            delta_val = ((real_time_price - prev_close) / prev_close * 100) if prev_close else 0
             
             st.metric(
                 "🎯 Price (PLN)",
-                f"{latest_price['close']:.2f}",
+                f"{real_time_price:.2f}",
                 delta=f"{delta_val:.2f}%",
                 help="Current stock price"
             )
         
         with col2:
-            pe_ratio = calculator.calculate_pe_ratio()
             st.metric(
                 "P/E Ratio",
                 f"{pe_ratio:.2f}x" if pe_ratio else "N/A",
-                help="Price-to-Earnings ratio"
+                help="Price-to-Earnings ratio (based on real-time price)"
             )
         
         with col3:
-            roe = calculator.calculate_roe()
+            st.metric(
+                "EPS",
+                f"{latest_financials['eps']:.2f}" if latest_financials['eps'] else "N/A",
+                help="Earnings Per Share (from latest quarterly report)"
+            )
+
+        with col4:
+            st.metric(
+                "EBITDA Margin",
+                f"{latest_financials['ebitda_margin']:.2f}%" if 'ebitda_margin' in latest_financials and latest_financials['ebitda_margin'] is not None else "N/A",
+                help="EBITDA / Revenue"
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        col5, col6, col7, col8 = st.columns(4)
+
+        with col5:
             st.metric(
                 "ROE",
-                f"{roe:.2f}%" if roe else "N/A",
+                f"{latest_financials['roe']:.2f}%" if 'roe' in latest_financials and latest_financials['roe'] is not None else "N/A",
                 help="Return on Equity"
             )
         
-        with col4:
-            ebitda_margin = calculator.calculate_ebitda_margin()
+        with col6:
             st.metric(
-                "EBITDA Margin",
-                f"{ebitda_margin:.2f}%" if ebitda_margin else "N/A",
-                help="EBITDA margin %"
+                "Net Margin",
+                f"{latest_financials['net_margin']:.2f}%" if 'net_margin' in latest_financials and latest_financials['net_margin'] is not None else "N/A",
+                help="Net Income / Revenue"
+            )
+
+        with col7:
+            st.metric(
+                "Debt/Equity",
+                f"{latest_financials['debt_to_equity']:.2f}" if 'debt_to_equity' in latest_financials and latest_financials['debt_to_equity'] is not None else "N/A",
+                help="Total Debt / Shareholder Equity"
             )
         
-        with col5:
-            eps = calculator.calculate_eps()
+        with col8:
             st.metric(
-                "EPS",
-                f"{eps:.2f}" if eps else "N/A",
-                help="EPS"
+                "Current Ratio",
+                f"{latest_financials['current_ratio']:.2f}" if 'current_ratio' in latest_financials and latest_financials['current_ratio'] is not None else "N/A",
+                help="Current Assets / Current Liabilities"
             )
+
 
 except Exception as e:
     st.error(f"❌ Error calculating metrics: {str(e)}")
@@ -285,7 +324,46 @@ except Exception as e:
     logger.error(f"Error creating charts: {e}")
 
 # ============================================================
-# SECTION 5: FOOTER
+# SECTION 5: HISTORICAL METRICS
+# ============================================================
+
+st.markdown("---")
+st.subheader("5. Historical Metrics")
+
+try:
+    if financials_df is not None and len(financials_df) > 0:
+        available_metrics = ['roe', 'roa', 'net_margin', 'debt_to_equity', 'current_ratio', 'eps']
+        
+        selected_metrics = st.multiselect(
+            "Select metrics to plot:",
+            options=available_metrics,
+            default=['roe', 'net_margin']
+        )
+        
+        if selected_metrics:
+            fig_metrics = px.line(
+                financials_df,
+                x='period',
+                y=selected_metrics,
+                title="Historical Metrics Trend",
+                labels={m: m.replace('_', ' ').title() for m in selected_metrics},
+            )
+            fig_metrics.update_layout(
+                hovermode='x unified',
+                height=400,
+                template='plotly_dark'
+            )
+            st.plotly_chart(fig_metrics, use_container_width=True)
+        else:
+            st.info("Select one or more metrics to display the chart.")
+
+except Exception as e:
+    st.error(f"❌ Error creating historical metrics chart: {str(e)}")
+    logger.error(f"Error creating historical metrics chart: {e}")
+
+
+# ============================================================
+# SECTION 6: FOOTER
 # ============================================================
 
 st.markdown("---")
